@@ -1,0 +1,10 @@
+[package]
+name = "mork-syscall"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mork-common = { path = "../../mork-common" }
+mork-hal = { path = "../mork-hal" }
+mork-task = { path = "../mork-task" }
+mork-kernel-state = { path = "../mork-kernel-state" }
