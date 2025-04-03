@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+log = "0.4"
 mork-common = { path = "../../mork-common" }
 mork-hal = { path = "../mork-hal" }
 mork-task = { path = "../mork-task" }
+mork-mm = { path = "../mork-mm" }
 mork-kernel-state = { path = "../mork-kernel-state" }
+mork-capability = { path = "../mork-capability" }
