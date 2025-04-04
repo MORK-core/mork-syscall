@@ -4,13 +4,12 @@ use mork_common::mork_kernel_log;
 use mork_common::syscall::message_info::{InvocationLabel, MessageInfo, ResponseLabel};
 use mork_common::types::{ResultWithErr, VMRights};
 use mork_hal::context::HALContextTrait;
-use mork_hal::mm::PageTableImpl;
-use mork_mm::page_table::MutPageTableWrapper;
+use mork_mm::page_table::{MutPageTableWrapper, PageTable};
 use mork_task::task::TaskContext;
 
 pub fn handle(cspace: &CapNode, current: &TaskContext, dest_cap: PageTableCap, message_info: MessageInfo)
     -> ResultWithErr<MessageInfo> {
-    let page_table = PageTableImpl::from_cap(&dest_cap);
+    let page_table = PageTable::from_cap(&dest_cap);
     let vaddr = current.hal_context.get_mr(1);
     match InvocationLabel::from_usize(message_info.get_label()) {
         InvocationLabel::PageTableMap => {

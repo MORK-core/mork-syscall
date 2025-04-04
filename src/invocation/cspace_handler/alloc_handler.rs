@@ -6,7 +6,7 @@ use mork_common::constants::ObjectType;
 use mork_common::mork_kernel_log;
 use mork_common::syscall::message_info::{MessageInfo, ResponseLabel};
 use mork_hal::config::NORMAL_PAGE_SIZE;
-use mork_hal::mm::PageTableImpl;
+use mork_mm::page_table::PageTable;
 use mork_task::task::TaskContext;
 
 pub struct AllocHandler<'a> {
@@ -50,7 +50,7 @@ impl AllocHandler<'_> {
         match object_type {
             ObjectType::CNode => size_of::<CapNode>(),
             ObjectType::Thread => size_of::<TaskContext>(),
-            ObjectType::PageTable => size_of::<PageTableImpl>(),
+            ObjectType::PageTable => size_of::<PageTable>(),
             ObjectType::Frame => NORMAL_PAGE_SIZE,
             _ => {
                 panic!("unsupported object type")
