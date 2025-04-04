@@ -44,8 +44,8 @@ pub fn handle_syscall(kernel_state: &mut KernelSafeAccessData,
                     }
 
                     CapType::Thread => {
-                        match invocation::task_handler::handle(
-                            &mut current, unsafe { dest_cap.thread_cap }, message_tag
+                        match invocation::task_handler::handle(cspace.get(),
+                            &current, unsafe { dest_cap.thread_cap }, message_tag
                         ) {
                             Ok(_) => {}
                             Err(_) => {}

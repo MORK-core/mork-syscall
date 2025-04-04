@@ -1,4 +1,4 @@
-use alloc::alloc::alloc;
+use alloc::alloc::alloc_zeroed;
 use core::alloc::Layout;
 use mork_capability::cap::{FrameCap, PageTableCap};
 use mork_capability::cnode::CapNode;
@@ -19,7 +19,7 @@ impl AllocHandler<'_> {
         if let Some(slot) = self.cspace.alloc_free() {
             let size = Self::get_object_size(&object_type);
             let layout = Layout::from_size_align(size, OBJECT_ALIGN).unwrap();
-            let object_ptr = unsafe { alloc(layout) };
+            let object_ptr = unsafe { alloc_zeroed(layout) };
             if object_ptr.is_null() {
                 mork_kernel_log!(warn, "Alloc memory failed");
                 Err(MessageInfo::new_response(ResponseLabel::NotEnoughSpace))
