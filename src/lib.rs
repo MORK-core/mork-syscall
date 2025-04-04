@@ -54,7 +54,7 @@ pub fn handle_syscall(kernel_state: &mut KernelSafeAccessData,
 
                     CapType::PageTable => {
                         match invocation::memory_handler::handle(
-                            cspace.get(), &current, unsafe { dest_cap.page_table_cap }, message_tag
+                            cspace.get_mut(), &current, unsafe { dest_cap.page_table_cap }, message_tag
                         ) {
                             Ok(_) => {}
                             Err(resp) => {
@@ -77,7 +77,6 @@ pub fn handle_syscall(kernel_state: &mut KernelSafeAccessData,
             panic!("Unsupported syscall type: {:?}", syscall);
         }
     }
-
     if current.state == ThreadStateEnum::ThreadStateRestart {
         kernel_state.scheduler.enqueue(current);
     }
