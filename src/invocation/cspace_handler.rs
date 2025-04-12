@@ -1,6 +1,6 @@
 use alloc::alloc::alloc_zeroed;
 use core::alloc::Layout;
-use mork_capability::cap::{CNodeCap, FrameCap, PageTableCap};
+use mork_capability::cap::{CNodeCap, FrameCap, PageTableCap, ThreadCap};
 use mork_capability::cnode::CapNode;
 use mork_common::constants::ObjectType;
 use mork_common::mork_kernel_log;
@@ -48,6 +48,14 @@ impl AllocHandler<'_> {
                     }
                     ObjectType::PageTable => {
                         let cap = PageTableCap::new(object_ptr as usize);
+                        self.cspace[slot] = cap.into_cap();
+                        Ok(slot)
+                    }
+                    ObjectType::Thread => {
+                        let cap = ThreadCap::new(object_ptr as usize);
+                        let task = TaskContext::from_cap(&cap);
+                        *task = TaskContext::new_user_thread();
+                        task.init_cspace();
                         self.cspace[slot] = cap.into_cap();
                         Ok(slot)
                     }
