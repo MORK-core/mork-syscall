@@ -115,13 +115,13 @@ fn handle_set_space(task: &mut TaskContext, current: &mut TaskContext) -> Result
     }
     if is_current {
         if current.hal_context.get_mr(0) != CNodeSlot::CapInitVSpace as usize {
+            cspace.free_slot(CNodeSlot::CapInitVSpace as usize);
             cspace[CNodeSlot::CapInitVSpace as usize] = vspace_cap.derive();
-            // todo: free old cap
         }
     } else {
         let target_cspace = task.cspace.as_mut().unwrap();
+        target_cspace.free_slot(CNodeSlot::CapInitVSpace as usize);
         target_cspace[CNodeSlot::CapInitVSpace as usize] = vspace_cap.derive();
-        // todo: free old cap
     }
     Ok(())
 

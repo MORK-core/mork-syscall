@@ -14,6 +14,8 @@ use mork_task::task_state::ThreadStateEnum;
 mod other;
 mod invocation;
 
+pub use invocation::cspace_handler::DeallocHandler;
+
 pub fn handle_syscall(kernel_state: &mut KernelSafeAccessData,
                       _cptr: usize, _msg_info: MessageInfo, syscall: Syscall) {
     let mut current = kernel_state.current_task.take().unwrap();

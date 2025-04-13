@@ -115,6 +115,7 @@ fn page_map(cspace: &mut CapNode, vspace: &mut PageTable,
     match page_table_wrapper.map_frame(
         vaddr,
         (frame_cap.base_ptr() << 12) as usize,
+        frame_cap.level() as usize,
         vm_rights.contains(VMRights::X),
         vm_rights.contains(VMRights::W),
         vm_rights.contains(VMRights::R),
