@@ -3,7 +3,7 @@ use core::alloc::Layout;
 use mork_capability::cap::{CNodeCap, FrameCap, PageTableCap, ThreadCap};
 use mork_capability::cnode::CapNode;
 use mork_capability::free_callback::CallbackHandler;
-use mork_common::constants::{CNodeSlot, ObjectType, MAX_CNODE_SIZE};
+use mork_common::constants::{CNodeSlot, ObjectType, MAX_CNODE_SIZE, MAX_THREAD_PIRO};
 use mork_common::mork_kernel_log;
 use mork_common::syscall::message_info::{InvocationLabel, MessageInfo, ResponseLabel};
 use mork_hal::config::{PAGE_SIZE_2M, PAGE_SIZE_NORMAL};
@@ -11,17 +11,22 @@ use mork_hal::context::HALContextTrait;
 use mork_mm::page_table::PageTable;
 use mork_task::task::TaskContext;
 
-pub fn handle(current: &mut TaskContext, dest_cap: CNodeCap, message_info: MessageInfo) -> Result<usize, MessageInfo> {
+pub fn handle(current: &mut TaskContext, dest_cap: ThreadCap, message_info: MessageInfo) -> Result<usize, MessageInfo> {
+    let task = TaskContext::from_cap(&dest_cap);
+    if task.cspace.is_none() {
+        mork_kernel_log!(error, "there is no cspace");
+        return Err(MessageInfo::new_response(ResponseLabel::NotEnoughSpace));
+    }
+
+    let cspace = task.cspace.as_mut().unwrap();
     match InvocationLabel::from_usize(message_info.get_label()) {
-        InvocationLabel::AllocObject => {
-            let cspace = CapNode::from_cap(&dest_cap);
+        InvocationLabel::CNodeAlloc => {
             let mut handler = AllocHandler { cspace };
             let obj_type = ObjectType::from_usize(current.hal_context.get_mr(0));
             handler.handle(obj_type)
         }
 
         InvocationLabel::CNodeDelete => {
-            let cspace = CapNode::from_cap(&dest_cap);
             let object_idx = current.hal_context.get_mr(0);
             cspace.free_slot(object_idx);
             Ok(object_idx)
@@ -68,6 +73,7 @@ impl AllocHandler<'_> {
                         let task = TaskContext::from_cap(&cap);
                         *task = TaskContext::new_user_thread();
                         task.init_cspace();
+                        task.prio = MAX_THREAD_PIRO - 1;
                         self.cspace[slot] = cap.into_cap();
                         Ok(slot)
                     }
@@ -106,10 +112,10 @@ impl CallbackHandler for DeallocHandler {
     fn free_frame(&self, cap: FrameCap) {
         let base_ptr = (cap.base_ptr() << 12) as usize;
         let (size, align) = match cap.level() {
-            2 => {
+            3 => {
                 (PAGE_SIZE_NORMAL, PAGE_SIZE_NORMAL)
             }
-            1 => {
+            2 => {
                 (PAGE_SIZE_2M, PAGE_SIZE_2M)
             }
             _ => {

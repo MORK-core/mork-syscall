@@ -38,19 +38,6 @@ pub fn handle_syscall(kernel_state: &mut KernelSafeAccessData,
                 let dest_cap = cspace[dest_cap_idx];
                 let message_tag = current.hal_context.get_tag();
                 match dest_cap.get_type() {
-                    CapType::CNode => {
-                        match invocation::cspace_handler::handle(
-                            &mut current, unsafe { dest_cap.cnode_cap }, message_tag)
-                        {
-                            Ok(res) => {
-                                current.hal_context.set_mr(0, res);
-                            }
-                            Err(resp) => {
-                                response = resp;
-                            }
-                        }
-                    }
-
                     CapType::Thread => {
                         match invocation::task_handler::handle(
                             kernel_state,
@@ -58,7 +45,9 @@ pub fn handle_syscall(kernel_state: &mut KernelSafeAccessData,
                             unsafe { dest_cap.thread_cap },
                             message_tag
                         ) {
-                            Ok(_) => {}
+                            Ok(res) => {
+                                current.hal_context.set_mr(0, res);
+                            }
                             Err(resp) => {
                                 response = resp;
                             }
