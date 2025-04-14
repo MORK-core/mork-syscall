@@ -1,6 +1,6 @@
 use alloc::alloc::{alloc_zeroed, dealloc};
 use core::alloc::Layout;
-use mork_capability::cap::{CNodeCap, FrameCap, PageTableCap, ThreadCap};
+use mork_capability::cap::{CNodeCap, CapType, FrameCap, NotificationCap, PageTableCap, ThreadCap};
 use mork_capability::cnode::CapNode;
 use mork_capability::free_callback::CallbackHandler;
 use mork_common::constants::{CNodeSlot, ObjectType, MAX_CNODE_SIZE, MAX_THREAD_PIRO};
@@ -10,6 +10,7 @@ use mork_hal::config::{PAGE_SIZE_2M, PAGE_SIZE_NORMAL};
 use mork_hal::context::HALContextTrait;
 use mork_mm::page_table::PageTable;
 use mork_task::task::TaskContext;
+use mork_ipc::notification::Notification;
 
 pub fn handle(current: &mut TaskContext, dest_cap: ThreadCap, message_info: MessageInfo) -> Result<usize, MessageInfo> {
     let task = TaskContext::from_cap(&dest_cap);
@@ -30,6 +31,34 @@ pub fn handle(current: &mut TaskContext, dest_cap: ThreadCap, message_info: Mess
             let object_idx = current.hal_context.get_mr(0);
             cspace.free_slot(object_idx);
             Ok(object_idx)
+        }
+        InvocationLabel::CNodeCopy => {
+            let src_cap = cspace[current.hal_context.get_mr(0)];
+            let input_cap = cspace[current.hal_context.get_mr(1)];
+            let dest_slot = current.hal_context.get_mr(2);
+            if input_cap.get_type() != CapType::Thread {
+                mork_kernel_log!(warn, "except thread cap, found: {:?}", input_cap.get_type());
+                return Err(MessageInfo::new_response(ResponseLabel::ErrCapType));
+            }
+            let dest_task_cap = unsafe { input_cap.thread_cap };
+            let dest_task = TaskContext::from_cap(&dest_task_cap);
+            if let Some(dest_cspace) = dest_task.cspace.as_mut() {
+                if dest_cspace.is_used(dest_slot) {
+                    if let Some(slot) = dest_cspace.alloc_free() {
+                        dest_cspace[slot] = src_cap.derive();
+                        Ok(slot)
+                    } else {
+                        mork_kernel_log!(warn, "dest cspace not found");
+                        Err(MessageInfo::new_response(ResponseLabel::NotEnoughSpace))
+                    }
+                } else {
+                    dest_cspace[dest_slot] = src_cap.derive();
+                    Ok(dest_slot)
+                }
+            } else {
+                mork_kernel_log!(warn, "dest cspace not found");
+                Err(MessageInfo::new_response(ResponseLabel::NotEnoughSpace))
+            }
         }
         _ => {
             mork_kernel_log!(warn, "unSupported invocation label: {}", message_info.get_label());
@@ -77,6 +106,13 @@ impl AllocHandler<'_> {
                         self.cspace[slot] = cap.into_cap();
                         Ok(slot)
                     }
+                    ObjectType::Notification => {
+                        let cap = NotificationCap::new(object_ptr as usize);
+                        let notification = Notification::from_cap(&cap);
+                        *notification = Notification::new();
+                        self.cspace[slot] = cap.into_cap();
+                        Ok(slot)
+                    }
                     _ => {
                         todo!("not supported")
                     }
@@ -95,6 +131,7 @@ impl AllocHandler<'_> {
             ObjectType::PageTable => (size_of::<PageTable>(), PAGE_SIZE_NORMAL),
             ObjectType::Frame4K => (PAGE_SIZE_NORMAL, PAGE_SIZE_NORMAL),
             ObjectType::Frame2M => (PAGE_SIZE_2M, PAGE_SIZE_2M),
+            ObjectType::Notification => (size_of::<Notification>(), PAGE_SIZE_NORMAL),
             _ => {
                 panic!("unsupported object type")
             }
@@ -150,6 +187,14 @@ impl CallbackHandler for DeallocHandler {
         }
         let base_ptr = task.get_ptr();
         let layout = Layout::from_size_align(size_of::<TaskContext>(), PAGE_SIZE_NORMAL).unwrap();
+        unsafe {
+            dealloc(base_ptr as *mut u8, layout);
+        }
+    }
+
+    fn free_notification(&self, cap: NotificationCap) {
+        let base_ptr = (cap.base_ptr() << 12) as usize;
+        let layout = Layout::from_size_align(size_of::<Notification>(), PAGE_SIZE_NORMAL).unwrap();
         unsafe {
             dealloc(base_ptr as *mut u8, layout);
         }

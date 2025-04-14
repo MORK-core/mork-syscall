@@ -11,3 +11,4 @@ mork-task = { path = "../mork-task" }
 mork-mm = { path = "../mork-mm" }
 mork-kernel-state = { path = "../mork-kernel-state" }
 mork-capability = { path = "../mork-capability" }
+mork-ipc = { path = "../mork-ipc" }
