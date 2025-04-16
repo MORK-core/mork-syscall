@@ -29,6 +29,10 @@ pub fn handle_syscall(kernel_state: &mut KernelSafeAccessData,
         Syscall::SysDebugPutChar => {
             mork_hal::console_putchar(char::from(current.hal_context.get_cap() as u8));
         }
+
+        Syscall::SysDebugShutdown => {
+            mork_hal::shutdown(false);
+        }
         Syscall::Syscall => {
             mork_kernel_log!(debug, "start syscall: {:?}", InvocationLabel::from_usize(_msg_info.get_label()));
             handle_call(kernel_state, &mut current);
