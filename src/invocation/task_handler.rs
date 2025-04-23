@@ -1,12 +1,13 @@
 use alloc::boxed::Box;
 use mork_capability::cap::{CapType, ThreadCap};
-use mork_common::constants::CNodeSlot;
+use mork_common::constants::{CNodeSlot, PAGE_SIZE_NORMAL};
 use mork_common::hal::{UserContext, UserContextTrait, MAX_GENERAL_REGISTER_NUM};
 use mork_common::mork_kernel_log;
 use mork_common::syscall::message_info::{InvocationLabel, MessageInfo, ResponseLabel};
+use mork_common::utils::alignas::is_aligned;
 use mork_hal::context::HALContextTrait;
 use mork_kernel_state::KernelSafeAccessData;
-use mork_mm::page_table::{map_kernel_window, PageTable};
+use mork_mm::page_table::{map_kernel_window, PageTableWrapper, PageTable};
 use mork_task::task::TaskContext;
 use mork_task::task_state::ThreadStateEnum;
 
@@ -38,22 +39,17 @@ pub fn handle(kernel_state: &mut KernelSafeAccessData, current: &mut TaskContext
         }
 
         InvocationLabel::TCBSetIPCBuffer => {
-            let cspace = current.cspace.as_ref().unwrap();
-            let frame_cap = cspace[current.hal_context.get_mr(0)];
-            if frame_cap.get_type() != CapType::Frame {
-                mork_kernel_log!(warn, "Invalid cap type: {:?}", frame_cap.get_type());
-                return Err(MessageInfo::new_response(ResponseLabel::ErrCapType));
+            let vaddr = current.hal_context.get_mr(0);
+            if !is_aligned(vaddr, PAGE_SIZE_NORMAL) {
+                mork_kernel_log!(warn, "Invalid vaddr {:#x}", vaddr);
+                return Err(MessageInfo::new_response(ResponseLabel::InvalidParam));
             }
-            if task.get_ptr() == current.get_ptr() {
-                task.ipc_buffer = Some(current.hal_context.get_mr(0));
-            } else {
-                let frame_cap_new = frame_cap.derive();
-                let target_cspace = task.cspace.as_mut().unwrap();
-                if let Some(index) = target_cspace.alloc_free() {
-                    target_cspace[index] = frame_cap_new;
-                    task.ipc_buffer = Some(index);
-                }
+            let vspace = current.get_vspace_mut().unwrap();
+            let wrapper = PageTableWrapper::new(vspace);
+            if let Some(ipc_buffer_ptr) = wrapper.va_to_pa(vaddr) {
+                task.ipc_buffer_ptr = Some(ipc_buffer_ptr)
             }
+
             Ok(0)
         }
 
