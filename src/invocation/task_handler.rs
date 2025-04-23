@@ -48,6 +48,9 @@ pub fn handle(kernel_state: &mut KernelSafeAccessData, current: &mut TaskContext
             let wrapper = PageTableWrapper::new(vspace);
             if let Some(ipc_buffer_ptr) = wrapper.va_to_pa(vaddr) {
                 task.ipc_buffer_ptr = Some(ipc_buffer_ptr)
+            } else {
+                mork_kernel_log!(warn, "lookup vaddr {:#x} failed", vaddr);
+                return Err(MessageInfo::new_response(ResponseLabel::InvalidParam));
             }
 
             Ok(0)
